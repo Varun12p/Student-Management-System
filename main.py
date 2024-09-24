@@ -68,7 +68,7 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def search(self):
-        dialog = SearchDialog()
+        dialog = SearchDialog(self)
         dialog.exec()
 
     def cell_clicked(self):
@@ -87,18 +87,65 @@ class MainWindow(QMainWindow):
         self.statusbar.addWidget(delete_button)
 
     def edit(self):
-        dialog = CellDialog()
+        dialog = EditDialog(self)
         dialog.exec()
 
     def delete(self):
-        dialog = EditDialog()
+        dialog = DeleteDialog(self)
         dialog.exec()
 
-class CellDialog(QDialog):
-    pass
-
 class EditDialog(QDialog):
-    pass
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("Update Student Data")
+        self.setFixedHeight(300)
+        self.setFixedWidth(300)
+
+        layout = QVBoxLayout()
+
+        # get the name from the selected student
+        index = self.main_window.table.currentRow()
+        student_name = self.main_window.table.item(index,1).text()
+
+        self.student_id = self.main_window.table.item(index,0).text()
+
+        self.name = QLineEdit(student_name)
+        self.name.setPlaceholderText("Name")
+        layout.addWidget(self.name)
+
+        # Get the course of the selected student
+        course_name = self.main_window.table.item(index,2).text()
+        self.course_name = QComboBox()
+        courses = ["Biology", "Math", "Astronomy", "Physics"]
+        self.course_name.addItems(courses)
+        self.course_name.setCurrentText(course_name)
+        layout.addWidget(self.course_name)
+
+        # Get the mobile number of selected student
+        mobile = self.main_window.table.item(index,3).text()
+        self.mobile = QLineEdit(mobile)
+        self.mobile.setPlaceholderText("Mobile No.")
+        layout.addWidget(self.mobile)
+
+        button = QPushButton("Update")
+        button.clicked.connect(self.update_data)
+        layout.addWidget(button)
+
+        self.setLayout(layout)
+
+    def update_data(self):
+        connection = sqlite3.connect("database.db")
+        cursor = connection.cursor()
+        cursor.execute("UPDATE students SET name=?, course = ?, mobile = ? WHERE id = ?",
+                       (self.name.text(),self.course_name.itemText(self.course_name.currentIndex()),
+                        self.mobile.text(), self.student_id))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        self.main_window.load_data()
+        self.close()
+
 
 class DeleteDialog(QDialog):
     pass
@@ -145,13 +192,13 @@ class InsertDialog(QDialog):
         cursor.close()
         connection.close()
 
-        std.load_data()
+        self.main_window.load_data()
         self.close()
 
 class SearchDialog(QDialog):
-    def __init__(self):
+    def __init__(self,main_window):
         super().__init__()
-
+        self.main_window = main_window
         self.setWindowTitle("Search the student")
         self.setFixedWidth(300)
         self.setFixedHeight(300)
@@ -175,10 +222,9 @@ class SearchDialog(QDialog):
         results = cursor.execute("SELECT * FROM students WHERE name = ?",(name,))
         rows = list(results)
 
-        items = std.table.findItems(name, Qt.MatchFlag.MatchFixedString)
+        items = self.main_window.table.findItems(name, Qt.MatchFlag.MatchFixedString)
         for item in items:
-            print(item)
-            std.table.item(item.row(),1).setSelected(True)
+            self.main_window.table.item(item.row(),1).setSelected(True)
 
         cursor.close()
         connection.close()
